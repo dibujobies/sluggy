@@ -1,5 +1,4 @@
 import random
-import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from bs4 import BeautifulSoup
@@ -8,16 +7,19 @@ import re
 import shutil
 import requests
 import time
-from datetime import datetime
 
 
-def process_img(driver, path, tag):
-    link = tag['data-src'] if 'data:image' in tag['src'] else tag['src']
+def process_img(path, tag):
     title = tag['alt']
+    link = tag['data-src'] if 'data:image' in tag['src'] else tag['src']
     comic_date = title.split(' ')[-1].split('/')
     month, day, year = comic_date
     ext = re.search(r'\.[a-zA-Z]+$', link).group(0)
     filename = f'{path}/Comic-for-{year}-{month}-{day}{ext}'
+    number = 0
+    while os.path.exists(filename):
+        number += 1
+        filename = f'{path}/Comic-for-{year}-{month}-{day}-{number}{ext}'
     print(link, title, filename)
     cookies = {
         '_ga': 'GA1.2.1778324893.1655873342',
@@ -45,19 +47,18 @@ def process_img(driver, path, tag):
 
 
 def main():
-    options = Options()
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option('useAutomationExtension', False)
-    driver = webdriver.Chrome('./chromedriver', options=options)
-    driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
-        "source": """
-        Object.defineProperty(navigator, 'webdriver', {
-          get: () => undefined
+    for i in range(30, 74):
+        options = Options()
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        options.add_experimental_option('useAutomationExtension', False)
+        driver = webdriver.Chrome('./chromedriver', options=options)
+        driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+            "source": """
+                Object.defineProperty(navigator, 'webdriver', {
+                  get: () => undefined
+                })
+              """
         })
-      """
-    })
-
-    for i in range(73, 74):
         path = f'./images/Chapter_{i}'
         if not os.path.isdir(path):
             os.makedirs(path)
@@ -66,9 +67,14 @@ def main():
         page_source = driver.page_source
         soup = BeautifulSoup(page_source, 'html.parser')
         images = soup.findAll('img', attrs={'alt': True})
-        print(images)
-        for image in images:
-            process_img(driver, path, image)
+        links = {}
+        for index, image in enumerate(images):
+            title = image['alt']
+            link = image['data-src'] if 'data:image' in image['src'] else image['src']
+            links[link] = links.get(link, 0) + 1
+            if links[link] > 1 or 'comic for' not in title.lower():
+                continue
+            process_img(path, image)
             time.sleep(random.uniform(0.2, 2))
         driver.close()
 
