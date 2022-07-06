@@ -47,7 +47,7 @@ def process_img(path, tag):
 
 
 def main():
-    for i in range(30, 74):
+    for i in range(1, 74):
         options = Options()
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
